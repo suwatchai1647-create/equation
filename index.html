@@ -39,6 +39,10 @@
   <p class="hint">กด ⌘V เพื่อวางภาพหน้าจอ หรือลากไฟล์มาวางได้</p>
   <img id="photo" alt="รูปที่แนบ" hidden>
   <button id="ocr" class="main" hidden>อ่านสมการจากรูป</button>
+  <details id="keyBox" hidden><summary>ตั้งค่าการอ่านรูป (ใช้ใน Word / เบราว์เซอร์ทั่วไป)</summary>
+   <p class="hint">ใส่ Claude API key ของคุณ (สร้างได้ที่ console.anthropic.com) ระบบจะเก็บไว้ในเครื่องนี้เท่านั้น และส่งรูปไปที่ Anthropic โดยตรงเมื่อกดอ่าน มีค่าใช้จ่ายตามการใช้งานจริง (ประมาณไม่ถึง 1 บาทต่อรูป)</p>
+   <div class="row"><input id="apiKey" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" style="flex:1;min-width:0"><button id="saveKey">บันทึก</button><button id="delKey">ลบ</button></div>
+  </details>
 </section>
 <p id="status" role="status"></p>
 </main>
