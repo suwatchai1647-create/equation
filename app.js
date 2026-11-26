@@ -323,12 +323,39 @@ function patchMeasure(){
   return{w:m.w,h:Math.max(0,b.actualBoundingBoxAscent)*size/1e5,d:Math.max(0,b.actualBoundingBoxDescent)*size/1e5}};
 }
 /* เครื่องหมายรากที่สูงมากประกอบจากหลายชิ้น หัวของมันบางกว่าเส้นขีดบน จึงเห็นเป็นขั้นบันได: ปรับเส้นให้หนาเท่าหัวราก */
+const shift=el=>{let x=0,y=0;for(const m of (el.getAttribute('transform')||'').matchAll(/translate\(\s*([-\d.e]+)[\s,]*([-\d.e]*)\s*\)/g)){x+=+m[1];y+=+(m[2]||0)}return[x,y]};
+/* กรอบของเส้น path (พิกัดสัมบูรณ์แบบที่ MathJax เขียน) */
+function pathBox(d,dx,dy,b){
+ let c='',xs=[],ys=[];const tok=d.match(/[A-Za-z]|-?[\d.]+(?:e-?\d+)?/g)||[];
+ for(let i=0;i<tok.length;){
+  if(/[A-Za-z]/.test(tok[i])){c=tok[i++];continue}
+  if(c==='H')xs.push(+tok[i++]);else if(c==='V')ys.push(+tok[i++]);else{xs.push(+tok[i++]);ys.push(+tok[i++])}
+ }
+ if(!xs.length)return b;
+ return{x0:Math.min(b.x0,...xs.map(v=>v+dx)),y0:Math.min(b.y0,...ys.map(v=>v+dy))};
+}
+/* วาดเครื่องหมายรากใหม่ทั้งตัว: ขาขึ้นกับขีดบนเป็นเส้นเดียวกัน หนาเท่ากัน หักมุมคม (เดิมขาขึ้นบางแต่ขีดบนหนา ต่อกันไม่เนียน) */
 function smoothLines(svg){
+ const NS='http://www.w3.org/2000/svg';
  for(const n of svg.querySelectorAll('[data-mml-node=msqrt],[data-mml-node=mroot]')){
-  const top=n.querySelector(':scope>[data-mml-node=mo] path[data-c=E001]'),bar=n.querySelector(':scope>rect');
-  if(!top||!bar)continue;
-  const h=+bar.getAttribute('height'),t=40;
-  if(h>t){bar.setAttribute('y',+bar.getAttribute('y')+h-t);bar.setAttribute('height',t)}
+  const mo=n.querySelector(':scope>[data-mml-node=mo]'),bar=n.querySelector(':scope>rect');
+  if(!mo||!bar)continue;
+  const [mx,my]=shift(mo);let b={x0:Infinity,y0:Infinity};
+  for(const p of mo.querySelectorAll('path')){const [px,py]=shift(p);b=pathBox(p.getAttribute('d')||'',mx+px,my+py,b)}
+  if(!isFinite(b.x0)||!isFinite(b.y0))continue;
+  const t=+bar.getAttribute('height'),left=+bar.getAttribute('x'),right=left+ +bar.getAttribute('width'),top=+bar.getAttribute('y')+t;
+  const x0=b.x0,y0=b.y0,H=top-y0,w=left-x0;
+  if(H<=0||w<=0)continue;
+  const thick=Math.max(2.2*t,100),yk=y0+Math.min(0.5*H,520),ka=x0+Math.min(0.12*w,100);
+  const xb=Math.max(x0+0.5*w,ka+thick*0.9),c=t/2;
+  const line=(pts,sw)=>{const p=document.createElementNS(NS,'path');p.setAttribute('d','M'+pts.map(q=>q.map(v=>v.toFixed(1)).join(' ')).join('L'));
+   p.setAttribute('fill','none');p.setAttribute('stroke','currentColor');p.setAttribute('stroke-width',sw);p.setAttribute('stroke-linejoin','miter');p.setAttribute('stroke-miterlimit','20');return p};
+  /* หางสั้นด้านซ้าย + ขาลงหนาที่เรียวลงไปจรดปลายล่าง เป็นรูปเดียวกัน ขอบจึงต่อเนื่อง */
+  const bx=xb-c*0.6,len=Math.hypot(bx-ka,yk-y0),f=Math.min(0.6,thick*0.7/len),k3=[ka+(bx-ka)*f,yk+(y0-yk)*f],sy=yk-thick*0.3;
+  const down=document.createElementNS(NS,'path');
+  down.setAttribute('d','M'+[[x0,sy],[ka,yk],[ka+thick,yk-thick*0.25],[xb+c,y0],[bx,y0],k3,[x0,sy-t*0.9]].map(q=>q.map(v=>v.toFixed(1)).join(' ')).join('L')+'Z');
+  mo.replaceChildren(down,line([[xb,y0+c],[left+c,top-c],[right,top-c]],t));
+  mo.setAttribute('transform','');bar.remove();
  }
  /* ตัวเอียงของฟอนต์ไทยเป็นการเอียงเทียม ขีด/หมวกด้านบน (x̄ ŷ) จึงเยื้องไปทางซ้าย: เลื่อนตามความเอียงของตัวอักษร */
  const g=document.createElement('canvas').getContext('2d');
