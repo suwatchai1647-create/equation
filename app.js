@@ -306,7 +306,11 @@ function useFont(mml,k){
   const gap=()=>{const g=doc.createElementNS(n.namespaceURI,'mspace');g.setAttribute('width','0.17em');return g};
   /* ครอบด้วย mrow เสมอ: MathJax คำนวณความสูงของ mtext ที่ขยาย 125% ผิดเมื่ออยู่ใต้ขีด/หมวก (เช่น x̄) ทำให้วงเล็บและรากโตเกินจริง */
   const row=doc.createElementNS(n.namespaceURI,'mrow');
-  if(n.localName==='mi'&&t.length>1&&n.parentNode.localName!=='msub'&&n.parentNode.localName!=='msup')row.append(gap(),e,gap());else row.append(e);
+  const p=n.parentNode;
+  if(n.localName==='mi'&&t.length>1&&p.localName!=='msub'&&p.localName!=='msup')row.append(gap(),e,gap());
+  /* ตัวเอียงที่มีเลขชี้กำลัง: เว้นที่ให้ยอดที่เอียงยื่นออกไป (italic correction) เลขชี้กำลังจะได้ไม่ทับ */
+  else if(v.includes('italic')&&p.localName==='msup'&&p.firstElementChild===n){const s=doc.createElementNS(n.namespaceURI,'mspace');s.setAttribute('width','0.1em');row.append(e,s)}
+  else row.append(e);
   n.replaceWith(row);
  }
  for(const n of doc.querySelectorAll('mtext'))if(/[฀-๿]/.test(n.textContent))n.setAttribute('mathsize','125%');
@@ -346,15 +350,14 @@ function smoothLines(svg){
   const t=+bar.getAttribute('height'),left=+bar.getAttribute('x'),right=left+ +bar.getAttribute('width'),top=+bar.getAttribute('y')+t;
   const x0=b.x0,y0=b.y0,H=top-y0,w=left-x0;
   if(H<=0||w<=0)continue;
-  const thick=Math.max(2.2*t,100),yk=y0+Math.min(0.5*H,520),ka=x0+Math.min(0.12*w,100);
-  const xb=Math.max(x0+0.5*w,ka+thick*0.9),c=t/2;
+  /* รูปทรงแบบเครื่องหมายรากของ Word: หางเฉียงขึ้น ขาลงหนาเท่ากันตลอด ขาขึ้นบาง */
+  const thick=Math.max(t*(H<1300?1.2:1.45),70),c=t/2,h2=thick/2;
+  const yk=y0+Math.min(0.5*H,600),ka=x0+Math.min(0.2*w,180),xb=Math.max(ka+thick*0.7,Math.min(x0+0.62*w,ka+0.55*(yk-y0)));
   const line=(pts,sw)=>{const p=document.createElementNS(NS,'path');p.setAttribute('d','M'+pts.map(q=>q.map(v=>v.toFixed(1)).join(' ')).join('L'));
    p.setAttribute('fill','none');p.setAttribute('stroke','currentColor');p.setAttribute('stroke-width',sw);p.setAttribute('stroke-linejoin','miter');p.setAttribute('stroke-miterlimit','20');return p};
-  /* หางสั้นด้านซ้าย + ขาลงหนาที่เรียวลงไปจรดปลายล่าง เป็นรูปเดียวกัน ขอบจึงต่อเนื่อง */
-  const bx=xb-c*0.6,len=Math.hypot(bx-ka,yk-y0),f=Math.min(0.6,thick*0.7/len),k3=[ka+(bx-ka)*f,yk+(y0-yk)*f],sy=yk-thick*0.3;
-  const down=document.createElementNS(NS,'path');
-  down.setAttribute('d','M'+[[x0,sy],[ka,yk],[ka+thick,yk-thick*0.25],[xb+c,y0],[bx,y0],k3,[x0,sy-t*0.9]].map(q=>q.map(v=>v.toFixed(1)).join(' ')).join('L')+'Z');
-  mo.replaceChildren(down,line([[xb,y0+c],[left+c,top-c],[right,top-c]],t));
+  /* หางกับขาลงเป็นเส้นหนาเส้นเดียว หักมุมคม; ขาขึ้นกับขีดบนเป็นเส้นบางเส้นเดียว */
+  const tick=line([[x0+h2,yk-(ka-x0)*0.3],[ka,yk],[xb,y0+h2*0.9]],thick);
+  mo.replaceChildren(tick,line([[xb-h2*0.35,y0+h2*0.2],[left+c,top-c],[right,top-c]],t));
   mo.setAttribute('transform','');bar.remove();
  }
  /* ตัวเอียงของฟอนต์ไทยเป็นการเอียงเทียม ขีด/หมวกด้านบน (x̄ ŷ) จึงเยื้องไปทางซ้าย: เลื่อนตามความเอียงของตัวอักษร */
@@ -366,6 +369,17 @@ function smoothLines(svg){
   g.font=`100px ${txt.style.fontFamily}`;
   const h=g.measureText(txt.textContent).actualBoundingBoxAscent*8.84*(s?+s[1]:1);
   acc.setAttribute('transform',`translate(${(h*0.22).toFixed(1)} 0) `+(acc.getAttribute('transform')||''));
+ }
+ /* เลขชี้กำลังของตัวเอียงเทียม: ยอดตัวอักษรเอียงยื่นไปทับเลขชี้กำลัง จึงขยับเลขชี้กำลังไปทางขวาและขึ้นเล็กน้อย */
+ for(const n of svg.querySelectorAll('[data-mml-node=msup],[data-mml-node=msubsup]')){
+  const [base,...scripts]=n.children,txt=base?.querySelector('[data-mml-node=mtext]');
+  if(!txt||base.querySelectorAll('[data-mml-node=mtext]').length!==1||!/italic/.test(txt.getAttribute('style')||''))continue;
+  const sup=scripts.map(s=>[s,shift(s)]).sort((a,b)=>b[1][1]-a[1][1])[0];
+  if(!sup||sup[1][1]<=0)continue;
+  const s=/scale\(([\d.]+)\)/.exec(txt.getAttribute('transform')||'');
+  g.font=`100px ${txt.style.fontFamily}`;
+  const h=g.measureText(txt.textContent).actualBoundingBoxAscent*8.84*(s?+s[1]:1),up=Math.max(0,h*0.92-sup[1][1]);
+  if(up)sup[0].setAttribute('transform',`translate(0 ${up.toFixed(1)}) `+(sup[0].getAttribute('transform')||''));
  }
 }
 const cache={};
