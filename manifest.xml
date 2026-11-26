@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0" xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="TaskPaneApp">
+  <Id>7d0f3a52-9c1e-4b8a-a2d4-3f6e1b905c77</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>Kru Kittipong</ProviderName>
+  <DefaultLocale>th-TH</DefaultLocale>
+  <DisplayName DefaultValue="พิมพ์สมการ"/>
+  <Description DefaultValue="พิมพ์สมการแล้วแทรกลง Word"/>
+  <IconUrl DefaultValue="https://suwatchai1647-create.github.io/equation/icons/icon-32.png"/>
+  <HighResolutionIconUrl DefaultValue="https://suwatchai1647-create.github.io/equation/icons/icon-64.png"/>
+  <SupportUrl DefaultValue="https://suwatchai1647-create.github.io/equation/index.html"/>
+  <AppDomains><AppDomain>https://suwatchai1647-create.github.io</AppDomain></AppDomains>
+  <Hosts><Host Name="Document"/></Hosts>
+  <DefaultSettings><SourceLocation DefaultValue="https://suwatchai1647-create.github.io/equation/index.html?word=1"/></DefaultSettings>
+  <Permissions>ReadWriteDocument</Permissions>
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Hosts><Host xsi:type="Document"><DesktopFormFactor>
+      <ExtensionPoint xsi:type="PrimaryCommandSurface">
+        <OfficeTab id="TabHome"><Group id="Eq.Group"><Label resid="name"/>
+          <Icon><bt:Image size="16" resid="i16"/><bt:Image size="32" resid="i32"/><bt:Image size="80" resid="i80"/></Icon>
+          <Control xsi:type="Button" id="Eq.Open"><Label resid="name"/>
+            <Supertip><Title resid="name"/><Description resid="tip"/></Supertip>
+            <Icon><bt:Image size="16" resid="i16"/><bt:Image size="32" resid="i32"/><bt:Image size="80" resid="i80"/></Icon>
+            <Action xsi:type="ShowTaskpane"><TaskpaneId>EqPane</TaskpaneId><SourceLocation resid="pane"/></Action>
+          </Control>
+        </Group></OfficeTab>
+      </ExtensionPoint>
+    </DesktopFormFactor></Host></Hosts>
+    <Resources>
+      <bt:Images><bt:Image id="i16" DefaultValue="https://suwatchai1647-create.github.io/equation/icons/icon-16.png"/><bt:Image id="i32" DefaultValue="https://suwatchai1647-create.github.io/equation/icons/icon-32.png"/><bt:Image id="i80" DefaultValue="https://suwatchai1647-create.github.io/equation/icons/icon-80.png"/></bt:Images>
+      <bt:Urls><bt:Url id="pane" DefaultValue="https://suwatchai1647-create.github.io/equation/index.html?word=1"/></bt:Urls>
+      <bt:ShortStrings><bt:String id="name" DefaultValue="พิมพ์สมการ"/></bt:ShortStrings>
+      <bt:LongStrings><bt:String id="tip" DefaultValue="เปิดแถบพิมพ์สมการ"/></bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>
