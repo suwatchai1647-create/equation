@@ -304,7 +304,10 @@ function useFont(mml,k){
   if(!['normal','italic','bold','bold-italic'].includes(v))continue;
   e.setAttribute('mathvariant',v);e.setAttribute('mathsize','125%');
   const gap=()=>{const g=doc.createElementNS(n.namespaceURI,'mspace');g.setAttribute('width','0.17em');return g};
-  if(n.localName==='mi'&&t.length>1&&n.parentNode.localName!=='msub'&&n.parentNode.localName!=='msup'){const row=doc.createElementNS(n.namespaceURI,'mrow');row.append(gap(),e,gap());n.replaceWith(row)}else n.replaceWith(e);
+  /* ครอบด้วย mrow เสมอ: MathJax คำนวณความสูงของ mtext ที่ขยาย 125% ผิดเมื่ออยู่ใต้ขีด/หมวก (เช่น x̄) ทำให้วงเล็บและรากโตเกินจริง */
+  const row=doc.createElementNS(n.namespaceURI,'mrow');
+  if(n.localName==='mi'&&t.length>1&&n.parentNode.localName!=='msub'&&n.parentNode.localName!=='msup')row.append(gap(),e,gap());else row.append(e);
+  n.replaceWith(row);
  }
  for(const n of doc.querySelectorAll('mtext'))if(/[฀-๿]/.test(n.textContent))n.setAttribute('mathsize','125%');
  return new XMLSerializer().serializeToString(doc);
@@ -318,6 +321,25 @@ function patchMeasure(){
   g.font=`${t.getAttribute('font-style')||''} ${t.getAttribute('font-weight')||''} 100px ${currentFont}`;
   const b=g.measureText(t.textContent);
   return{w:m.w,h:Math.max(0,b.actualBoundingBoxAscent)*size/1e5,d:Math.max(0,b.actualBoundingBoxDescent)*size/1e5}};
+}
+/* เครื่องหมายรากที่สูงมากประกอบจากหลายชิ้น หัวของมันบางกว่าเส้นขีดบน จึงเห็นเป็นขั้นบันได: ปรับเส้นให้หนาเท่าหัวราก */
+function smoothLines(svg){
+ for(const n of svg.querySelectorAll('[data-mml-node=msqrt],[data-mml-node=mroot]')){
+  const top=n.querySelector(':scope>[data-mml-node=mo] path[data-c=E001]'),bar=n.querySelector(':scope>rect');
+  if(!top||!bar)continue;
+  const h=+bar.getAttribute('height'),t=40;
+  if(h>t){bar.setAttribute('y',+bar.getAttribute('y')+h-t);bar.setAttribute('height',t)}
+ }
+ /* ตัวเอียงของฟอนต์ไทยเป็นการเอียงเทียม ขีด/หมวกด้านบน (x̄ ŷ) จึงเยื้องไปทางซ้าย: เลื่อนตามความเอียงของตัวอักษร */
+ const g=document.createElement('canvas').getContext('2d');
+ for(const n of svg.querySelectorAll('[data-mml-node=mover]')){
+  const [base,acc]=n.children,txt=base?.querySelector('[data-mml-node=mtext]');
+  if(!acc||!txt||base.querySelectorAll('[data-mml-node=mtext]').length!==1||!/italic/.test(txt.getAttribute('style')||''))continue;
+  const s=/scale\(([\d.]+)\)/.exec(txt.getAttribute('transform')||'');
+  g.font=`100px ${txt.style.fontFamily}`;
+  const h=g.measureText(txt.textContent).actualBoundingBoxAscent*8.84*(s?+s[1]:1);
+  acc.setAttribute('transform',`translate(${(h*0.22).toFixed(1)} 0) `+(acc.getAttribute('transform')||''));
+ }
 }
 const cache={};
 const dataUrl=blob=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(blob)});
@@ -333,6 +355,7 @@ async function doRender(){
  const mml=useFont(await toMml(tex),k);
  const node=await MathJax.mathml2svgPromise(mml,{display:true});
  const svg=node.querySelector('svg').cloneNode(true);
+ smoothLines(svg);
  let [x,y,w,h]=svg.getAttribute('viewBox').split(/\s+/).map(Number);
  const pad=120;x-=pad;y-=pad;w+=2*pad;h+=2*pad;
  const wpt=w*pt/1000,hpt=h*pt/1000,depth=(y+h)*pt/1000;
@@ -456,7 +479,25 @@ if(new URLSearchParams(location.search).has('word')){
 
 /* ---------- photo / file ---------- */
 let photo=null;
-function setPhoto(blob){photo=blob;const i=$('#photo');i.src=URL.createObjectURL(blob);i.hidden=false;$('#ocr').hidden=!sample;say(sample?'':'แนบรูปแล้ว (การอ่านสมการจากรูปใช้ได้เฉพาะเวอร์ชันที่เปิดใน Claude)')}
+/* อ่านรูป: ใน Claude ใช้ window.claude ส่วนใน Word / เบราว์เซอร์ทั่วไปใช้ API key ของผู้ใช้เรียก Claude API โดยตรง */
+const keyStore={get(){try{return localStorage.eqKey||''}catch{return''}},set(v){try{v?localStorage.eqKey=v:localStorage.removeItem('eqKey')}catch{}}};
+const canRead=()=>!!(sample||keyStore.get());
+function setPhoto(blob){photo=blob;const i=$('#photo');i.src=URL.createObjectURL(blob);i.hidden=false;$('#ocr').hidden=!canRead();
+ if(canRead())say('');else{$('#keyBox').hidden=false;$('#keyBox').open=true;say('แนบรูปแล้ว ใส่ API key ด้านล่างเพื่อเปิดใช้การอ่านสมการจากรูป')}}
+$('#saveKey').onclick=()=>{const v=$('#apiKey').value.trim();if(!/^sk-ant-/.test(v))return say('API key ต้องขึ้นต้นด้วย sk-ant-');keyStore.set(v);$('#apiKey').value='';$('#keyBox').open=false;if(photo)$('#ocr').hidden=false;say('บันทึก API key แล้ว')};
+$('#delKey').onclick=()=>{keyStore.set('');$('#apiKey').value='';if(!sample)$('#ocr').hidden=true;say('ลบ API key แล้ว')};
+const OCR_PROMPT='The image shows handwritten or printed math, possibly with Thai text. Transcribe every equation or math line exactly as written. Do not solve or correct anything. Reply with only JSON: {"lines":["LaTeX of line 1","LaTeX of line 2"]}. No $ delimiters. Put Thai words inside \\text{}. If there is no math, reply {"lines":[]}.';
+async function readWithKey(blob){
+ const data=(await dataUrl(blob)).split(',')[1];
+ const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':keyStore.get(),'anthropic-version':'2026-10-21','anthropic-beta':'server-side-fallback-2026-07-01','anthropic-dangerous-direct-browser-access':'true'},
+  body:JSON.stringify({model:'claude-opus-5-5',max_tokens:4000,fallbacks:'default',output_config:{effort:'low',format:{type:'json_schema',schema:{type:'object',properties:{lines:{type:'array',items:{type:'string'}}},required:['lines'],additionalProperties:false}}},
+   messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:blob.type||'image/jpeg',data}},{type:'text',text:OCR_PROMPT}]}]})});
+ const j=await res.json().catch(()=>({}));
+ if(!res.ok){const e=new Error(res.status===401?'API key ไม่ถูกต้อง':res.status===429?'ใช้งานถี่เกินไป รอสักครู่แล้วลองใหม่':j.error?.message||'HTTP '+res.status);e.code=res.status===401?'bad_key':undefined;throw e}
+ if(j.stop_reason==='refusal')throw new Error('ระบบปฏิเสธการอ่านรูปนี้');
+ const t=(j.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('');
+ return JSON.parse(t.slice(t.indexOf('{'),t.lastIndexOf('}')+1));
+}
 async function shrink(src,w,h){const s=Math.min(1,1600/Math.max(w,h)),c=document.createElement('canvas');c.width=w*s;c.height=h*s;const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(src,0,0,c.width,c.height);return new Promise(f=>c.toBlob(f,'image/jpeg',.9))}
 const script=src=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('โหลดตัวอ่าน PDF ไม่ได้'));document.head.append(s)});
 const take=guard(async f=>{
@@ -475,11 +516,12 @@ addEventListener('dragover',e=>e.preventDefault());addEventListener('drop',e=>{e
 $('#ocr').onclick=async()=>{
  const b=$('#ocr');b.disabled=true;say('กำลังอ่านรูป อาจใช้เวลาสักครู่…');
  try{
-  const r=await sample.json('The image shows handwritten or printed math, possibly with Thai text. Transcribe every equation or math line exactly as written. Do not solve or correct anything. Reply with only JSON: {"lines":["LaTeX of line 1","LaTeX of line 2"]}. No $ delimiters. Put Thai words inside \\text{}. If there is no math, reply {"lines":[]}.',{images:photo});
+  const r=sample?await sample.json(OCR_PROMPT,{images:photo}):await readWithKey(photo);
   const got=(Array.isArray(r?.lines)?r.lines:[]).map(String).filter(l=>l.trim());
   if(!got.length)say('ไม่พบสมการในรูป ลองถ่ายให้ใกล้และชัดขึ้น');
   else{lines=used().concat(got);active=0;drawLines();changed();say('อ่านแล้ว กรุณาตรวจเทียบกับรูปก่อนใช้')}
- }catch(e){say(e.code==='not_granted'?'ยังไม่ได้อนุญาตให้ใช้ Claude อ่านรูป':'อ่านรูปไม่สำเร็จ ลองใหม่อีกครั้ง ('+(e.code||e.message)+')')}
+ }catch(e){if(e.code==='bad_key'){$('#keyBox').hidden=false;$('#keyBox').open=true}
+  say(e.code==='not_granted'?'ยังไม่ได้อนุญาตให้ใช้ Claude อ่านรูป':'อ่านรูปไม่สำเร็จ ลองใหม่อีกครั้ง ('+(e.message||e.code)+')')}
  b.disabled=false;
 };
 
@@ -488,6 +530,7 @@ function apply(d){lines=Array.isArray(d.lines)&&d.lines.length?d.lines.map(Strin
 const saved=store.get();apply(saved.lines?saved:{lines:['x=\\frac{-b\\pm\\sqrt{b^2-4ac}}{2a}']});
 window.claude?.use('downloads').then(d=>downloads=d);
 window.claude?.use('sample').then(async s=>{if(s&&(await s.limits().catch(()=>null))?.images){sample=s;if(photo)$('#ocr').hidden=false}});
+if(!window.claude)$('#keyBox').hidden=false; /* นอก Claude (เช่นใน Word) ให้ตั้งค่า API key ได้ */
 window.eq={PADS,toMml,clean,render,pngBlob,ommlBody,pkg,picBody,apply};
 
 /* แถบปรับความใสของกระจก */
