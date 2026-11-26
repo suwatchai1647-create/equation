@@ -350,14 +350,21 @@ function smoothLines(svg){
   const t=+bar.getAttribute('height'),left=+bar.getAttribute('x'),right=left+ +bar.getAttribute('width'),top=+bar.getAttribute('y')+t;
   const x0=b.x0,y0=b.y0,H=top-y0,w=left-x0;
   if(H<=0||w<=0)continue;
-  /* รูปทรงแบบเครื่องหมายรากของ Word: หางเฉียงขึ้น ขาลงหนาเท่ากันตลอด ขาขึ้นบาง */
-  const thick=Math.max(t*(H<1300?1.2:1.45),70),c=t/2,h2=thick/2;
-  const yk=y0+Math.min(0.5*H,600),ka=x0+Math.min(0.2*w,180),xb=Math.max(ka+thick*0.7,Math.min(x0+0.62*w,ka+0.55*(yk-y0)));
-  const line=(pts,sw)=>{const p=document.createElementNS(NS,'path');p.setAttribute('d','M'+pts.map(q=>q.map(v=>v.toFixed(1)).join(' ')).join('L'));
-   p.setAttribute('fill','none');p.setAttribute('stroke','currentColor');p.setAttribute('stroke-width',sw);p.setAttribute('stroke-linejoin','miter');p.setAttribute('stroke-miterlimit','20');return p};
-  /* หางกับขาลงเป็นเส้นหนาเส้นเดียว หักมุมคม; ขาขึ้นกับขีดบนเป็นเส้นบางเส้นเดียว */
-  const tick=line([[x0+h2,yk-(ka-x0)*0.3],[ka,yk],[xb,y0+h2*0.9]],thick);
-  mo.replaceChildren(tick,line([[xb-h2*0.35,y0+h2*0.2],[left+c,top-c],[right,top-c]],t));
+  /* รูปทรงเครื่องหมายรากแบบ Word (Cambria Math) วัดสัดส่วนจากสมการที่พิมพ์ใน Word:
+     หางเฉียงขึ้นสั้นๆ ขาลงหนา ขาขึ้นบางเกือบตั้งตรง มุมบนซ้ายหักคม ขีดบนหนาเท่าขาขึ้น
+     ส่วนหาง+ขาลงมีขนาดคงที่ (หน่วย em) จึงไม่หนาเกินในรากเล็ก และไม่ยืดตามรากที่สูง */
+  const k=Math.min(1,H/1100)*1000,aw=t*0.95;
+  /* ช่องว่างหน้าเครื่องหมายที่เหลือ แบ่งครึ่งไปไว้ใต้ขีดบน เครื่องหมายจะได้ไม่ห่างจากตัวเลขข้างหน้า (เช่น 2√3) */
+  const L=left-Math.max(0,(left-0.624*k-x0)*0.5),xa=L-0.22*k,slope=(L-xa)/H;
+  const asc=y=>xa+slope*(y-y0),P=(u,v)=>[xa-0.404*k+u*k,y0+v*k];
+  const poly=pts=>{const p=document.createElementNS(NS,'path');p.setAttribute('d','M'+pts.map(q=>q.map(v=>v.toFixed(1)).join(' ')).join('L')+'Z');return p};
+  const ry=y0+0.191*k;
+  const lower=poly([P(0,0.554),P(0.137,0.637),P(0.178,0.646),P(0.417,0.191),[asc(ry)+aw*0.5,ry],[xa+aw*0.5,y0],[xa,y0],P(0.121,0.548),P(0.026,0.529)]);
+  const upper=poly([[xa,y0],[L,top],[right,top],[right,top-t],[L+aw-slope*t,top-t],[xa+aw,y0]]);
+  mo.replaceChildren(lower,upper);
+  /* เลขกำกับราก (∛) ให้อยู่เหนือหาง ไม่ทับกัน */
+  const idx=n.getAttribute('data-mml-node')==='mroot'&&[...n.children].find((c,i)=>i>0&&c!==mo&&c.hasAttribute('data-mml-node'));
+  if(idx){const [ix,iy]=shift(idx),want=y0+0.72*k;if(iy!==want)idx.setAttribute('transform',(idx.getAttribute('transform')||'').replace(/translate\(\s*[-\d.e]+[\s,]*[-\d.e]*\s*\)/,`translate(${(ix-Math.max(0,(left-0.624*k-x0)*0.5)*0.5).toFixed(1)},${want.toFixed(1)})`))}
   mo.setAttribute('transform','');bar.remove();
  }
  /* ตัวเอียงของฟอนต์ไทยเป็นการเอียงเทียม ขีด/หมวกด้านบน (x̄ ŷ) จึงเยื้องไปทางซ้าย: เลื่อนตามความเอียงของตัวอักษร */
