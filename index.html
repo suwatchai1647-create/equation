@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>พิมพ์สมการ ง่ายๆ</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<main>
+<header><h1>พิมพ์สมการ<small>แล้วใส่ใน Word</small></h1><label class="clarity">ใส <input id="clarity" type="range" min="25" max="95" value="45" aria-label="ปรับความใสหรือทึบของกระจก"> ทึบ</label></header>
+
+<section>
+  <div class="row"><label>ฟอนต์ <select id="font"></select></label>
+  <label>ขนาด (pt) <input id="size" type="number" min="8" max="96" value="16"></label>
+  <label>สี <input id="color" type="color" value="#000000"></label></div>
+  <div id="lines"></div>
+  <div id="tabs" class="tabs" role="tablist"></div>
+  <div id="tools" class="tools"></div>
+  <div id="nav" class="tools nav"></div>
+  <div class="row"><button id="addLine">+ บรรทัดใหม่</button><button id="addThai">+ ข้อความไทย</button><button id="clear">ล้าง</button></div>
+  <details><summary>โค้ด LaTeX (พิมพ์ไทยได้เลย 1 บรรทัด = 1 สมการ)</summary><textarea id="src" rows="4" spellcheck="false"></textarea></details>
+</section>
+
+<section><h2>ตัวอย่างจริง</h2><div id="preview" class="paper"></div></section>
+
+<section id="wordBox" hidden><h2>ใส่ใน Word</h2>
+  <div class="row"><button id="insFont" class="main">แทรกสมการ (เปลี่ยนฟอนต์ใน Word ได้)</button><button id="insEq">สมการ Word แบบมาตรฐาน</button><button id="insPic">แทรกเป็นรูป</button></div>
+  <button id="load">ดึงสมการจากรูปที่เลือกมาแก้</button>
+</section>
+
+<section><h2>คัดลอก / บันทึก</h2>
+  <div class="row"><button id="copyPng" class="main">คัดลอกรูป PNG</button><button id="copyMml">คัดลอกสมการ Word (MathML)</button><button id="copyTex">คัดลอก LaTeX</button></div>
+  <div class="row"><button data-save="png">.PNG</button><button data-save="svg">.SVG</button><button data-save="pdf">.PDF</button><button data-save="tex">.TEX</button>
+  <label><input id="white" type="checkbox"> พื้นขาว</label></div>
+  <img id="fallback" alt="รูปสมการ" hidden>
+  <p id="align" class="hint"></p>
+</section>
+
+<section id="ocrBox"><h2>แกะสมการจากรูป</h2>
+  <div class="row"><label class="btn">ถ่ายรูป<input id="cam" type="file" accept="image/*" capture="environment" hidden></label>
+  <label class="btn">แนบรูป / ไฟล์<input id="file" type="file" accept="image/*,application/pdf,.tex,.txt" hidden></label></div>
+  <p class="hint">กด ⌘V เพื่อวางภาพหน้าจอ หรือลากไฟล์มาวางได้</p>
+  <img id="photo" alt="รูปที่แนบ" hidden>
+  <button id="ocr" class="main" hidden>อ่านสมการจากรูป</button>
+</section>
+<p id="status" role="status"></p>
+</main>
+<script src="vendor/mathlive.min.js"></script>
+<script>
+window.MathJax={startup:{typeset:false},svg:{fontCache:'none'},options:{enableMenu:false}};
+</script>
+<script src="vendor/tex-mml-svg.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="app.js"></script>
+</body></html>
