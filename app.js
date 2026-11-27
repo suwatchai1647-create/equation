@@ -309,7 +309,7 @@ function useFont(mml,k){
   const p=n.parentNode;
   if(n.localName==='mi'&&t.length>1&&p.localName!=='msub'&&p.localName!=='msup')row.append(gap(),e,gap());
   /* ตัวเอียงที่มีเลขชี้กำลัง: เว้นที่ให้ยอดที่เอียงยื่นออกไป (italic correction) เลขชี้กำลังจะได้ไม่ทับ */
-  else if(v.includes('italic')&&p.localName==='msup'&&p.firstElementChild===n){const s=doc.createElementNS(n.namespaceURI,'mspace');s.setAttribute('width','0.1em');row.append(e,s)}
+  else if(v.includes('italic')&&p.localName==='msup'&&p.firstElementChild===n){const s=doc.createElementNS(n.namespaceURI,'mspace');s.setAttribute('width','0.04em');row.append(e,s)}
   else row.append(e);
   n.replaceWith(row);
  }
@@ -377,16 +377,22 @@ function smoothLines(svg){
   const h=g.measureText(txt.textContent).actualBoundingBoxAscent*8.84*(s?+s[1]:1);
   acc.setAttribute('transform',`translate(${(h*0.22).toFixed(1)} 0) `+(acc.getAttribute('transform')||''));
  }
- /* เลขชี้กำลังของตัวเอียงเทียม: ยอดตัวอักษรเอียงยื่นไปทับเลขชี้กำลัง จึงขยับเลขชี้กำลังไปทางขวาและขึ้นเล็กน้อย */
+ /* เลขชี้กำลังของตัวอักษรเดี่ยว ให้อยู่ระดับเดียวกันทุกตัวแบบ Word (a² กับ b² เท่ากัน)
+    เดิม MathJax ยกตามความสูงของตัวอักษรที่ขยาย 125% ตัวสูงอย่าง b d f จึงลอยกว่าตัวเตี้ยอย่าง a x
+    และต้องสูงพ้นยอดตัว x ที่เอียง ไม่ให้ทับกัน */
+ const crampedIn=el=>{for(let c=el,p=el.parentElement;p&&p!==svg;c=p,p=p.parentElement){const k=p.getAttribute('data-mml-node');
+   if(k==='msqrt'||k==='mroot'||(k==='mfrac'&&[...p.children].filter(x=>x.hasAttribute('data-mml-node')||x.querySelector('[data-mml-node]')).indexOf(c)===1))return true}return false};
+ const displayIn=el=>!el.parentElement.closest('[data-mml-node=mfrac],[data-mml-node=msup],[data-mml-node=msub],[data-mml-node=msubsup],[data-mml-node=munderover],[data-mml-node=mover],[data-mml-node=munder]');
  for(const n of svg.querySelectorAll('[data-mml-node=msup],[data-mml-node=msubsup]')){
-  const [base,...scripts]=n.children,txt=base?.querySelector('[data-mml-node=mtext]');
-  if(!txt||base.querySelectorAll('[data-mml-node=mtext]').length!==1||!/italic/.test(txt.getAttribute('style')||''))continue;
-  const sup=scripts.map(s=>[s,shift(s)]).sort((a,b)=>b[1][1]-a[1][1])[0];
+  const [base,...scripts]=n.children,txts=base?.querySelectorAll('[data-mml-node=mtext]');
+  if(!txts||txts.length!==1||[...txts[0].textContent].length!==1)continue;
+  const txt=txts[0],sup=scripts.map(s=>[s,shift(s)]).sort((a,b)=>b[1][1]-a[1][1])[0];
   if(!sup||sup[1][1]<=0)continue;
   const s=/scale\(([\d.]+)\)/.exec(txt.getAttribute('transform')||'');
   g.font=`100px ${txt.style.fontFamily}`;
-  const h=g.measureText(txt.textContent).actualBoundingBoxAscent*8.84*(s?+s[1]:1),up=Math.max(0,h*0.92-sup[1][1]);
-  if(up)sup[0].setAttribute('transform',`translate(0 ${up.toFixed(1)}) `+(sup[0].getAttribute('transform')||''));
+  const hx=g.measureText('x').actualBoundingBoxAscent*8.84*(s?+s[1]:1);
+  const p=crampedIn(n)?289:displayIn(n)?413:363,want=Math.max(p,hx*0.95),dy=want-sup[1][1];
+  if(Math.abs(dy)>0.5)sup[0].setAttribute('transform',`translate(0 ${dy.toFixed(1)}) `+(sup[0].getAttribute('transform')||''));
  }
 }
 const cache={};
